@@ -91,18 +91,15 @@ def run(args):
     """
     Build model
     """
-    fairsad_new = FairSAD(args)
+    fairsad_trainer = FairSAD(args)
     
     """
     Train model (Teacher model and Student model)
     """
-    weight_path = f'./{args.model}_vanilla.pt'
-    auc_roc_test, f1_s, acc, parity, equality = fairsad_new.train_fit(None, None, fair_dataset, args.epochs,
-                                                                      model_type=args.model_type,
-                                                                      weight_path=weight_path, alpha=args.alpha,
-                                                                      beta=args.beta, pbar=args.pbar)
+    auc_roc_test, f1_s_test, acc_test, parity_test, equality_test = fairsad_trainer.train_fit(fair_dataset, args.epochs, alpha=args.alpha,
+                                                                                                beta=args.beta, pbar=args.pbar)
 
-    return auc_roc_test, f1_s, acc, parity, equality
+    return auc_roc_test, f1_s_test, acc_test, parity_test, equality_test
 
 
 if __name__ == '__main__':

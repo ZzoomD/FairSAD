@@ -15,25 +15,35 @@ class FairSAD(torch.nn.Module):
     def __init__(self, train_args):
         super(FairSAD, self).__init__()
         self.args = train_args
-        self.encoder = DisGCN(train_args.nfeat, train_args.hidden, train_args.nclass, train_args.channels,
-                              train_args.num_layers, dropout=0.5).to(self.args.device)
+        # model of FairSAD: encoder, masker, classifier
+        self.encoder = DisGCN(nfeat=self.args.nfeat,
+                                nhid=self.args.hidden,
+                                nclass=self.args.nclass,
+                                chan_num=4,
+                                layer_num=2,
+                                dropout=self.args.dropout
+                                ).to(self.args.device)
         self.masker = channel_masker(train_args.hidden).to(self.args.device)
         self.classifier = nn.Linear(train_args.hidden, train_args.nclass).to(self.args.device)
 
         self.per_channel_dim = train_args.hidden // train_args.channels
         self.channel_cls = nn.Linear(self.per_channel_dim, train_args.channels).to(self.args.device)
 
-        self.optimizer_g = torch.optim.Adam(list(self.encoder.parameters()) + list(self.masker.parameters()) +
-                                            list(self.classifier.parameters()), lr=train_args.lr,
+        # optumizer
+        self.optimizer_g = torch.optim.Adam(list(self.encoder.parameters()) + list(self.classifier.parameters()) + list(self.masker.parameters()), lr=train_args.lr,
                                             weight_decay=train_args.weight_decay)
 
         self.optimizer_c = torch.optim.Adam(list(self.channel_cls.parameters()), lr=train_args.lr,
                                             weight_decay=train_args.weight_decay)
 
+        # loss function
         self.criterion_bce = nn.BCEWithLogitsLoss()
         self.criterion_dc = DistCor()
         self.criterion_mul_cls = nn.CrossEntropyLoss()
         self.criterion_mask = FeatCov()
+
+        self.encoder.init_parameters()
+        self.encoder.init_edge_weight()
 
         for m in self.modules():
             self.weights_init(m)
@@ -50,7 +60,7 @@ class FairSAD(torch.nn.Module):
         output = self.classifier(h)
         return h, output
 
-    def train_fit(self, optimizer=None, criterion=None, data=None, epochs=None, model_type=None, weight_path=None, **kwargs):
+    def train_fit(self, data, epochs, **kwargs):
         # parsing parameters
         alpha = kwargs.get('alpha', None)
         beta = kwargs.get('beta', None)
@@ -72,6 +82,7 @@ class FairSAD(torch.nn.Module):
             h = self.encoder(data.features, data.edge_index)
             h = self.masker(h)
             output = self.classifier(h)
+            # output = self.encoder.predict(h)
 
             # downstream tasks loss
             loss_cls_train = self.criterion_bce(output[data.idx_train],
@@ -103,7 +114,7 @@ class FairSAD(torch.nn.Module):
             self.optimizer_g.step()
             self.optimizer_c.step()
 
-            # training encoder, assigner, classifier
+            # evaluating encoder, assigner, classifier
             self.encoder.eval()
             self.classifier.eval()
 
@@ -149,7 +160,6 @@ class FairSAD(torch.nn.Module):
 
         return roc_test, f1_test, acc_test, parity_test, equality_test
 
-
 class DisenLayer(MessagePassing):
     def __init__(self, in_dim, out_dim, channels, reduce=True):
         super(DisenLayer, self).__init__()
@@ -175,14 +185,6 @@ class DisenLayer(MessagePassing):
         self.bias_list = nn.ParameterList(
             nn.Parameter(torch.empty(size=(1, self.per_channel_dim), dtype=torch.float), requires_grad=True) for i in
             range(self.channels))
-
-    def reset_parameters(self):
-        super().reset_parameters()
-        self.lin_layers.reset_parameters()
-        self.conv_layers.reset_parameters()
-        zeros(self.bias_list)
-        self._cached_edge_index = None
-        self._cached_adj_t = None
 
     def get_reddim_k(self, x):
         z_feats = []
@@ -220,7 +222,6 @@ class DisenLayer(MessagePassing):
     def message_and_aggregate(self, adj_t: SparseTensor, x: Tensor) -> Tensor:
         return matmul(adj_t, x, reduce=self.aggr)
 
-
 class DisGCN(nn.Module):
     def __init__(self, nfeat, nhid, nclass, chan_num, layer_num, dropout=0.5):
         super(DisGCN, self).__init__()
@@ -232,7 +233,7 @@ class DisGCN(nn.Module):
         self.layer_num = layer_num
         self.edge_weight = None
 
-        self.assigner = EdgeWeight(nfeat, chan_num)
+        self.assigner = NeiborAssigner(nfeat, chan_num)
         self.disenlayers = nn.ModuleList()
         for i in range(layer_num-1):
             if i == 0:
@@ -246,6 +247,13 @@ class DisGCN(nn.Module):
     def init_parameters(self):
         for i, item in enumerate(self.parameters()):
             torch.nn.init.normal_(item, mean=0, std=1)
+    
+    def init_edge_weight(self):
+        for m in self.assigner.modules():
+            if isinstance(m, nn.Linear):
+                torch.nn.init.xavier_uniform_(m.weight.data)
+                if m.bias is not None:
+                    m.bias.data.fill_(0.0)
 
     def forward(self, x, edge_index):
         assert isinstance(edge_index, SparseTensor), "Expected input is sparse tensor"
@@ -256,10 +264,9 @@ class DisGCN(nn.Module):
             x = self.dropout(x)
         return x
 
-
-class EdgeWeight(nn.Module):
+class NeiborAssigner(nn.Module):
     def __init__(self, nfeats, channels):
-        super(EdgeWeight, self).__init__()
+        super(NeiborAssigner, self).__init__()
 
         self.layers = nn.Sequential(
             nn.Linear(in_features=2 * nfeats, out_features=channels),
@@ -280,16 +287,11 @@ class EdgeWeight(nn.Module):
         alpha_score = torch.softmax(alpha_score, dim=1)
         return alpha_score
 
-
 class channel_masker(nn.Module):
     def __init__(self, hid_num):
         super(channel_masker, self).__init__()
         self.hid_num = hid_num
-        self.weights = nn.Parameter(torch.distributions.Uniform(
-            0, 1).sample((hid_num, 2)))
-
-    def reset_parameters(self):
-        self.weights = torch.nn.init.xavier_uniform_(self.weights)
+        self.weights = nn.Parameter(torch.distributions.Uniform(0, 1).sample((hid_num, 2)))
 
     def forward(self, x):
         mask = F.gumbel_softmax(self.weights, tau=1, hard=False)[:, 0]

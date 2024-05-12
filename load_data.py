@@ -34,7 +34,7 @@ class FairDataset:
             predict_attr = 'NoDefaultNextMonth'
             label_number = 6000 if label_number is None else label_number
             sens_number = label_number if sens_number is None else sens_number
-            path_credit = "/home/yczhu/Dataset/credit"
+            path_credit = "./datasets/credit"
             adj, features, labels, idx_train, idx_val, idx_test, sens = load_credit(dataset, sens_attr,
                                                                                     predict_attr, path=path_credit,
                                                                                     label_number=label_number,
@@ -53,7 +53,7 @@ class FairDataset:
             predict_attr = "GoodCustomer"
             label_number = 100 if label_number is None else label_number
             sens_number = label_number if sens_number is None else sens_number
-            path_german = "/home/yczhu/Dataset/german"
+            path_german = "./datasets/german"
             adj, features, labels, idx_train, idx_val, idx_test, sens = load_german(dataset, sens_attr,
                                                                                     predict_attr, path=path_german,
                                                                                     label_number=label_number,
@@ -68,7 +68,7 @@ class FairDataset:
             predict_attr = "RECID"
             label_number = 100 if label_number is None else label_number
             sens_number = label_number if sens_number is None else sens_number
-            path_bail = "/home/yczhu/Dataset/bail"
+            path_bail = "./datasets/bail"
             adj, features, labels, idx_train, idx_val, idx_test, sens = load_bail(dataset, sens_attr,
                                                                                   predict_attr, path=path_bail,
                                                                                   label_number=label_number,
@@ -88,7 +88,7 @@ class FairDataset:
             sens_number = 200
             sens_idx = 3
             seed = 20
-            path = "/home/yczhu/Dataset/pokec/"
+            path = "./datasets/pokec/"
             adj, features, labels, idx_train, idx_val, idx_test, sens, idx_sens_train = load_pokec(dataset,
                                                                                                    sens_attr,
                                                                                                    predict_attr,
@@ -108,7 +108,7 @@ class FairDataset:
             sens_number = 200
             sens_idx = 3
             seed = 20
-            path = "/home/yczhu/Dataset/pokec/"
+            path = "./datasets/pokec/"
             adj, features, labels, idx_train, idx_val, idx_test, sens, idx_sens_train = load_pokec(dataset,
                                                                                                    sens_attr,
                                                                                                    predict_attr,
@@ -127,7 +127,7 @@ class FairDataset:
             sens_number = label_number if sens_number is None else sens_number
             sens_idx = 35
             seed = 20
-            path = "/home/yczhu/Dataset/NBA/"
+            path = "./datasets/NBA/"
             adj, features, labels, idx_train, idx_val, idx_test, sens, idx_sens_train = load_pokec(dataset,
                                                                                                    sens_attr,
                                                                                                    predict_attr,
@@ -155,7 +155,7 @@ class FairDataset:
             edge_index_spar, features, labels, idx_train, idx_val, idx_test, sens
 
 
-def load_pokec(dataset, sens_attr, predict_attr, path="/home/yczhu/Dataset/pokec/", label_number=1000, sens_number=500,
+def load_pokec(dataset, sens_attr, predict_attr, path="./datasets/pokec/", label_number=1000, sens_number=500,
                seed=19, split_ratio=None, val_idx=True):
     """Load data"""
     # print('Loading {} dataset from {}'.format(dataset, path))
@@ -239,7 +239,7 @@ def load_pokec(dataset, sens_attr, predict_attr, path="/home/yczhu/Dataset/pokec
     return adj, features, labels, idx_train, idx_val, idx_test, sens, idx_sens_train
 
 
-def load_credit(dataset, sens_attr="Age", predict_attr="NoDefaultNextMonth", path="/home/yczhu/Dataset/credit/",
+def load_credit(dataset, sens_attr="Age", predict_attr="NoDefaultNextMonth", path="./datasets/credit/",
                 label_number=1000, split_ratio=None, val_idx=True):
     # print('Loading {} dataset from {}'.format(dataset, path))
     idx_features_labels = pd.read_csv(os.path.join(path, "{}.csv".format(dataset)))
@@ -320,7 +320,7 @@ def load_credit(dataset, sens_attr="Age", predict_attr="NoDefaultNextMonth", pat
     return adj, features, labels, idx_train, idx_val, idx_test, sens
 
 
-def load_bail(dataset, sens_attr="WHITE", predict_attr="RECID", path="/home/yczhu/Dataset/bail/", label_number=1000,
+def load_bail(dataset, sens_attr="WHITE", predict_attr="RECID", path="./datasets/bail/", label_number=1000,
               split_ratio=None, val_idx=True):
     # print('Loading {} dataset from {}'.format(dataset, path))
     idx_features_labels = pd.read_csv(os.path.join(path, "{}.csv".format(dataset)))
@@ -407,7 +407,7 @@ def load_bail(dataset, sens_attr="WHITE", predict_attr="RECID", path="/home/yczh
     return adj, features, labels, idx_train, idx_val, idx_test, sens
 
 
-def load_german(dataset, sens_attr="Gender", predict_attr="GoodCustomer", path="/home/yczhu/Dataset/german/",
+def load_german(dataset, sens_attr="Gender", predict_attr="GoodCustomer", path="./datasets/german/",
                 label_number=1000, split_ratio=None, val_idx=True):
     # print('Loading {} dataset from {}'.format(dataset, path))
     idx_features_labels = pd.read_csv(os.path.join(path, "{}.csv".format(dataset)))
